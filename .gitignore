@@ -1,0 +1,7 @@
+.idea/
+pages/
+resources/
+target/
+*.iml
+pages.txt
+dependency-reduced-pom.xml
