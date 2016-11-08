@@ -12,6 +12,7 @@ import org.jsoup.select.Elements;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.text.DecimalFormat;
@@ -95,11 +96,17 @@ public class Main {
                     continue;
                 }
                 String[] split = line.split("=", 2);
-                String key = split[0], url = split[1];
-                pages.put(key, url);
+                String key = split[0], url = split[1].replace(" ", "_");
+                if (key.startsWith("Category:")) {
+                    Map<String, String> articles = CategoryUtil.getArticles(key, url, 0);
+                    System.out.println(articles.size() + " articles in category");
+                    pages.putAll(articles);
+                } else {
+                    pages.put(key, url);
+                }
             }
             System.out.println("DONE");
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.out.println("FAILED");
             e.printStackTrace();
             System.exit(1);
@@ -119,16 +126,17 @@ public class Main {
         int length = 0;
         System.out.println("> Downloading the following pages (" + pages.size() + "): " + StringUtils.join(pages.keySet().toArray(), ", ") + ".");
         for (Map.Entry<String, String> entry : pages.entrySet()) {
-            File destination = new File(directory, entry.getKey() + ".html");
-            String location = entry.getValue();
-            System.out.print("  - Downloading " + entry.getKey() + "... ");
-            if (destination.exists()) {
-                System.out.println("OK");
-                length += destination.length();
-                skipPatch.add(entry.getKey());
-                continue;
-            }
+            File destination = null;
             try {
+                destination = new File(directory, URLEncoder.encode(entry.getKey(), "UTF-8").replace("*", "(star)") + ".html");
+                String location = entry.getValue();
+                System.out.print("  - Downloading " + entry.getKey() + "... ");
+                if (destination.exists()) {
+                    System.out.println("OK");
+                    length += destination.length();
+                    skipPatch.add(entry.getKey());
+                    continue;
+                }
                 NetIO.downloadTo(location, destination);
             } catch (IOException e) {
                 System.out.println("FAILED");
@@ -146,21 +154,21 @@ public class Main {
         System.out.println("> Patching pages for offline display.");
         File directory = new File("pages");
         for (Map.Entry<String, String> entry : pages.entrySet()) {
-            File destination = new File(directory, entry.getKey() + ".html");
-            System.out.print("  - " + entry.getKey() + ": ");
-            if (skipPatch.contains(entry.getKey())) {
-                System.out.println("SKIPPED");
-                continue;
-            }
-            System.out.print("\n    - Patching head locations... ");
             try {
+                File destination = new File(directory, URLEncoder.encode(entry.getKey(), "UTF-8").replace("*", "(star)") + ".html");
+                System.out.print("  - " + entry.getKey() + ": ");
+                if (skipPatch.contains(entry.getKey())) {
+                    System.out.println("SKIPPED");
+                    continue;
+                }
+                System.out.print("\n    - Patching head locations... ");
                 Document document = Jsoup.parse(destination, "UTF-8");
                 Element head = document.head();
                 Elements stylesheets = head.getElementsByAttributeValue("rel", "stylesheet");
-                stylesheets.get(0).attr("href", "../resources/" + WikiIndices.STYLESHEET_CLIENT.getFileName());
-                stylesheets.get(1).attr("href", "../resources/" + WikiIndices.STYLESHEET_SITE.getFileName());
+                stylesheets.get(0).attr("href", "../resources/" + WikiIndices.STYLESHEET_CLIENT.getFileName()).attr("charset", "UTF-8");
+                stylesheets.get(1).attr("href", "../resources/" + WikiIndices.STYLESHEET_SITE.getFileName()).attr("charset", "UTF-8");
                 //head.getElementsByTag("script").get(2).attr("src", "../resources/" + WikiIndices.JAVASCRIPT_STARTUP.getFileName());
-                //head.prependElement("script").attr("src", "../resources/" + WikiIndices.JAVASCRIPT_JQUERY.getFileName());
+                head.prependElement("script").attr("src", "../resources/" + WikiIndices.JAVASCRIPT_JQUERY.getFileName()).attr("charset", "UTF-8");
                 head.getElementsByTag("script").get(2).remove();
                 document.getElementsByClass("mw-wiki-logo").get(0).attr("style", "background-image: url(../resources/" + WikiIndices.IMAGE_LOGO.getFileName() + ")");
                 document.getElementById("p-personal").remove();
@@ -215,7 +223,7 @@ public class Main {
                     if (!location.contains("png") && !location.contains("svg") && !location.contains("jpg") && !location.contains(".jpeg")) {
                         continue;
                     }
-                    File imageDest = new File(imageDir, NetIO.fileName(location));
+                    File imageDest = new File(imageDir, URLEncoder.encode(NetIO.fileName(location), "UTF-8").replace("*", "(star)"));
                     if (imageDest.exists()) {
                         continue;
                     }
